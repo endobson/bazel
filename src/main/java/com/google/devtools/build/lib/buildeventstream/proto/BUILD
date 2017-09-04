@@ -27,4 +27,7 @@ proto_library(
         "//src/main/protobuf:command_line_proto",
         "//src/main/protobuf:invocation_policy_proto",
     ],
+    visibility = [
+        "//visibility:public",
+    ]
 )
