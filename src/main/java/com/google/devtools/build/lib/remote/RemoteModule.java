@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.remote.common.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -272,14 +273,26 @@ public final class RemoteModule extends BlazeModule {
 
       if (enableBlobStoreCache) {
         executeRetrier = null;
-        cache =
-            new SimpleBlobStoreActionCache(
-                remoteOptions,
-                SimpleBlobStoreFactory.create(
-                    remoteOptions,
-                    GoogleAuthUtils.newCredentials(authAndTlsOptions),
-                    Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory")),
-                digestUtil);
+        SimpleBlobStore blobstore1 =
+          SimpleBlobStoreFactory.create(
+              remoteOptions,
+              GoogleAuthUtils.newCredentials(authAndTlsOptions),
+              Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"));
+
+        SimpleBlobStore blobstore2 =
+          SimpleBlobStoreFactory.create(
+              remoteOptions,
+              GoogleAuthUtils.newCredentials(authAndTlsOptions),
+              Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"));
+
+        cache = new SimpleBlobStoreActionCache(remoteOptions, blobstore1, digestUtil);
+        Context requestContext =
+            TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
+        buildEventArtifactUploaderFactoryDelegate.init(
+            new ByteStreamBuildEventArtifactUploaderFactory2(
+                blobstore2,
+                requestContext,
+                remoteOptions.remoteInstanceName));
       }
 
       GrpcRemoteExecutor executor = null;
